@@ -1,4 +1,4 @@
-#DataTable Library for Codeigniter
+#DataTable Library for Codeigniter 
 
 This library requires **DataTables 1.10 >**
 

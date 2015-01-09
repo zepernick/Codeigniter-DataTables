@@ -1,5 +1,5 @@
 <?php if (!defined('BASEPATH')) exit('No direct script access allowed');
-/**
+/** 
  * The MIT License (MIT)
 
 Copyright (c) 2015 Paul Zepernick
