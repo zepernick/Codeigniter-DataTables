@@ -185,7 +185,8 @@ class Datatable{
 			}
 			
 			if($this -> rowIdCol !== NULL) {
-				$idCol = trim(end(explode('.', $this -> rowIdCol)));
+				$tmpRowIdSegments = explode('.', $this -> rowIdCol);
+				$idCol = trim(end($tmpRowIdSegments));
 				$colObj['DT_RowId'] = $row -> $idCol;
 			}
 			$dataArray[] = $colObj;
