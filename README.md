@@ -19,6 +19,12 @@ This library requires **DataTables 1.10 >**
 
 * Drastically Reduces PHP Code Necessary To Generate a Server Side Table
 
+Chnage Log
+-----
+* **v1.1**
+ * New Method `setPreResultCallback(function())`
+ * New Method `setColumnSearchType(colName, type)` / `getColumnSearchType(colName)`
+
 Install
 -----
 
@@ -54,9 +60,47 @@ Name          | Description   | Return
 `joinArray` | Join additional tables for DataTable columns to reference.  *Tip: Join Types CAN be specifed by using a pipe in the key value `'table_to_join b&#124;left outer'`*| **Assoc. Array** *Key*=Table To Join *Value*=SQL Join Expression.
 `whereClauseArray`| Append Static SQL to the generated Where Clause| **Assoc. Array** *Key*= Column Name *Value*=Value To Filter **OR** *NULL*
 
+Methods
+----
+`setPreResultCallback(function)`
+This will get called after the library constructs the associative array that will get converted into JSON.  This allows for the manipulation of the data
+in the JSON or to add custom properties to the JSON before it is pushed to the browser.  Make sure that you use the & when getting the data rows, otherwise, 
+you will end up with a copy of the array and it will not affect the json.  Below is an example of how it is used.
+```php
+$this -> datatable -> setPreResultCallback(
+			function(&$json) {
+				$rows =& $json['data'];
+				foreach($rows as &$r) {
+					// example of nested object in row when the 
+					// data propterty in the javascript looks like "$.url"
+					if(empty($r['$']['url']) === FALSE) {
+						$newUrl = 'http://www.changeurl.com';
+						$r['$']['url'] = $newUrl;
+					}
+					
+					// change the value of the gender in the Json.  data property in the javascript looks like "gender"
+					$r['gender'] = $r['gender'] == 'M' ? 'Male' : 'Female';
+					
+					
+				}
+				
+				
+				$json['a_custom_property'] = 'Check me out with firebug!';	
+			}
+		);
+```
 
+`setColumnSearchType(columnName, type)`
+Set the matching type to be done for a given column. This will default to "after" if not specified
+*columnName*(string) - Name of the column matching what was passed in from the JavaScript in the data property
+*type*(string) - Type of search to perform.  This will control the % wildcard on the like.  valid values are: before, after, both, none
+```php
+	$this -> datatable -> setColumnSearchType('$.url', 'both');
+```
 
-
+ `getColumnSearchType(columnName)`
+ Returns the current matching for a given column
+ *columnName*(string) - Name of the column matching what was passed in from the JavaScript in the data property
 
 Basic DatatableModel Implementation
 --------

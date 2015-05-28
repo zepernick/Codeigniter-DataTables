@@ -32,12 +32,19 @@ THE SOFTWARE.
  */
 class Datatable{
 	
+	private static $VALID_MATCH_TYPES = array('before', 'after', 'both', 'none');
 
-    var $model;
+    private $model;
 	
-	var $CI;
+	private $CI;
 	
-	var $rowIdCol;
+	private $rowIdCol;
+	
+	private $preResultFunc = FALSE;
+	
+	// assoc. array.  key is column name being passed from the DataTables data property and value is before, after, both, none
+	private $matchType = array();
+	
     
     /**
 	 * @params
@@ -68,12 +75,71 @@ class Datatable{
 	}
 	
 	/**
+	 * Register a function that will fire after the JSON object is put together
+	 * in the library, but before sending it to the browser.  The function should accept 1 parameter
+	 * for the JSON object which is stored as associated array.
+	 * 
+	 * IMPORTANT: Make sure to add a & in front of the parameter to get a reference of the Array,otherwise
+	 * your changes will not be picked up by the library
+	 * 
+	 * 		function(&$json) {
+	 * 			//do some work and add to the json if you wish.
+	 * 		}
+	 */
+	public function setPreResultCallback($func) {
+		if(is_object($func) === FALSE || ($func instanceof Closure) === FALSE) {
+			throw new Exception('Expected Anonymous Function Parameter Not Received');	
+		}
+		
+		$this -> preResultFunc = $func;
+		
+		return $this;
+	}
+	
+	
+	/**
+	 * Sets the wildcard matching to be a done on a specific column in the search
+	 * 
+	 * @param col
+	 * 		column sepcified in the DataTables "data" property
+	 * @param type
+	 * 		Type of wildcard search before, after, both, none.  Default is after if not specified for a column.
+	 * @return	Datatable
+	 */
+	public function setColumnSearchType($col, $type) {
+		$type = trim(strtolower($type));
+		//make sure we have a valid type
+		if(in_array($type, self :: $VALID_MATCH_TYPES) === FALSE) {
+			throw new Exception('[' . $type . '] is not a valid type.  Must Use: ' . implode(', ', self :: $VALID_MATCH_TYPES));
+		}
+		
+		$this -> matchType[$col] = $type;
+		
+	//	log_message('info', 'setColumnSearchType() ' . var_export($this -> matchType, TRUE));
+		
+		return $this;
+	}
+	
+	/**
+	 * Get the current search type for a column
+	 * 
+	 * @param col
+	 * 		column sepcified in the DataTables "data" property
+	 * 
+	 * @return search type string
+	 */
+	public function getColumnSearchType($col) {
+	//	log_message('info', 'getColumnSearchType() ' . var_export($this -> matchType, TRUE));
+		return isset($this -> matchType[$col]) ? $this -> matchType[$col] : 'after';
+	}
+	
+	/**
 	 * @param formats
 	 * 			Associative array. 
 	 * 				Key is column name
 	 * 				Value format: percent, currency, date, boolean
 	 */
-	public function datatableJson($formats = array()) {
+	public function datatableJson($formats = array(), $debug = FALSE) {
 		
 		$f = $this -> CI -> input;
 		$start = (int)$f -> post('start');
@@ -150,6 +216,9 @@ class Datatable{
 			return $jsonArry;
 		}
 		
+		if($debug === TRUE) {
+			$jsonArry['debug_sql'] = $this -> CI -> db -> last_query();
+		}
 		
 		//process the results and create the JSON objects
 		$dataArray = array();
@@ -207,14 +276,19 @@ class Datatable{
 		$jsonArry['recordsTotal'] = $totalRecords;
 		$jsonArry['recordsFiltered'] = $totalRecords;
 		$jsonArry['data'] = $dataArray;
-		$jsonArry['debug'] = $whereDebug;
+		//$jsonArry['debug'] = $whereDebug;
+		
+		if($this -> preResultFunc !== FALSE) {
+			$func = $this -> preResultFunc;
+			$func($jsonArry);
+		}
 		
 		return $jsonArry;
 		
 	}
 
 	private function formatValue($formats, $column, $value) {
-		if (isset($formats[$column]) === FALSE) {
+		if (isset($formats[$column]) === FALSE || trim($value) == '') {
 			return $value;
 		}
 		
@@ -254,6 +328,7 @@ class Datatable{
 	//fetch the data and get a total record count
 	private function sqlJoinsAndWhere() {
 		$debug = '';
+		$this -> CI -> db-> _protect_identifiers = FALSE;
 		$this -> CI -> db -> from($this -> model -> fromTableStr());
 		
 		$joins = $this -> model -> joinArray() === NULL ? array() : $this -> model -> joinArray();
@@ -275,6 +350,8 @@ class Datatable{
 		foreach($f -> post('columns') as $c) {
 			if($c['search']['value'] !== '') {
 				$colName = $c['data'];
+				$searchType = $this -> getColumnSearchType($colName);
+				//log_message('info', 'colname[' . $colName . '] searchtype[' . $searchType . ']');
 				//handle custom sql expressions/subselects
 				if(substr($colName, 0, 2) === '$.') {
 					$aliasKey = substr($colName, 2);
@@ -285,7 +362,8 @@ class Datatable{
 					$colName = $customExpArray[$aliasKey];
 				}
 				$debug .= 'col[' . $c['data'] .'] value[' . $c['search']['value'] . '] ' . PHP_EOL;
-				$this -> CI -> db -> like($colName, $c['search']['value'], 'after');
+			//	log_message('info', 'colname[' . $colName . '] searchtype[' . $searchType . ']');
+				$this -> CI -> db -> like($colName, $c['search']['value'], $searchType);
 			}
 		}
 		
