@@ -167,7 +167,10 @@ in the `data` property of the `columns` array.
 $('#myDataTable').dataTable( {
         processing: true,
         serverSide: true,
-        ajax: '/index.php/DataTableExample/dataTable',
+        ajax: {
+            "url": "/index.php/DataTableExample/dataTable",
+            "type": "POST"
+        },
         columns: [
             { data: "s.s_name" },
             {data : "c.c_name"},
