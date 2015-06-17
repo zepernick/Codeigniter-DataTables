@@ -211,6 +211,8 @@ class Datatable{
 		$this -> CI -> db -> limit($limit, $start);
 		$query = $this -> CI -> db -> get();	
 		
+		$jsonArry = array();
+		
 		if(!$query) {
 			$jsonArry['errorMessage'] = $this -> CI -> db -> _error_message();
 			return $jsonArry;
@@ -269,7 +271,6 @@ class Datatable{
 		
 		
 		
-		$jsonArry = array();
 		$jsonArry['start'] = $start;
 		$jsonArry['limit'] = $limit;
 		$jsonArry['draw'] = (int)$f -> post('draw');
@@ -328,7 +329,8 @@ class Datatable{
 	//fetch the data and get a total record count
 	private function sqlJoinsAndWhere() {
 		$debug = '';
-		$this -> CI -> db-> _protect_identifiers = FALSE;
+		// this is protected in CI 3 and can no longer be turned off. must be turned off in the config
+		// $this -> CI -> db-> _protect_identifiers = FALSE;
 		$this -> CI -> db -> from($this -> model -> fromTableStr());
 		
 		$joins = $this -> model -> joinArray() === NULL ? array() : $this -> model -> joinArray();
@@ -347,25 +349,52 @@ class Datatable{
 								$this -> model -> appendToSelectStr();
 		
 		$f = $this -> CI -> input;
+		
+		$searchableColumns = array();
 		foreach($f -> post('columns') as $c) {
+			
+			$colName = $c['data'];
+			
+			if(substr($colName, 0, 2) === '$.') {
+				$aliasKey = substr($colName, 2);
+				if(isset($customExpArray[$aliasKey]) === FALSE) {
+					throw new Exception('Alias['. $aliasKey .'] Could Not Be Found In appendToSelectStr() Array');
+				}
+				
+				$colName = $customExpArray[$aliasKey];
+			}
+			
+			if($c['searchable'] !== 'false') {
+				$searchableColumns[] = $colName;
+			}
+			
 			if($c['search']['value'] !== '') {
-				$colName = $c['data'];
 				$searchType = $this -> getColumnSearchType($colName);
 				//log_message('info', 'colname[' . $colName . '] searchtype[' . $searchType . ']');
 				//handle custom sql expressions/subselects
-				if(substr($colName, 0, 2) === '$.') {
-					$aliasKey = substr($colName, 2);
-					if(isset($customExpArray[$aliasKey]) === FALSE) {
-						throw new Exception('Alias['. $aliasKey .'] Could Not Be Found In appendToSelectStr() Array');
-					}
-					
-					$colName = $customExpArray[$aliasKey];
-				}
+				
 				$debug .= 'col[' . $c['data'] .'] value[' . $c['search']['value'] . '] ' . PHP_EOL;
 			//	log_message('info', 'colname[' . $colName . '] searchtype[' . $searchType . ']');
 				$this -> CI -> db -> like($colName, $c['search']['value'], $searchType);
 			}
 		}
+		
+		
+		
+		// put together a global search if specified
+		$globSearch = $f -> post('search');
+		if($globSearch['value'] !== '') {
+			$gSearchVal = $globSearch['value'];
+			$sqlOr = '';
+			$op = '';
+			foreach($searchableColumns as $c) {
+				$sqlOr .= $op . $c . ' LIKE \'' . $this->CI->db->escape_like_str($gSearchVal) . '%\''; 
+				$op = ' OR ';
+			}
+			
+			$this -> CI -> db -> where('(' . $sqlOr . ')');
+		}
+		
 		
         //append a static where clause to what the user has filtered, if the model tells us to do so
 		$wArray = $this -> model -> whereClauseArray();
