@@ -21,6 +21,12 @@ This library requires **DataTables 1.10 >**
 
 Chnage Log
 -----
+* **v1.2**
+ * New Method `setProtectIdentifiers(boolean)` this defaults to FALSE if not specified.  It will allow the
+ 	Query Builder to surround table names and column names with backticks when TRUE
+ * Library no longer enforces POST requests.  POST or GET can be used now
+ * Bug Fix: Global search now properly supported	
+ 	
 * **v1.1**
  * New Method `setPreResultCallback(function())`
  * New Method `setColumnSearchType(colName, type)` / `getColumnSearchType(colName)`
