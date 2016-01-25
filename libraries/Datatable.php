@@ -65,7 +65,12 @@ class Datatable
 
         $this->rowIdCol = isset($params['rowIdCol']) ? $params['rowIdCol'] : NULL;
 
+
         $CI->load->model($model);
+
+        //if model in subfolders not in model folder like this
+        // model/shopping/tvmodel
+        $model = $this->getModel($model);
 
         if (($CI->$model instanceof DatatableModel) === false) {
             throw new Exception('Model must implement the DatatableModel Interface');
@@ -420,6 +425,13 @@ class Datatable
         }
 
         return $debug;
+    }
+
+    //if model in subfolders not in model folder like this
+    // model/shopping/tvmodel
+    private function getModel($model){
+        $Folders =  explode('/',$model);
+        return end($Folders);
     }
 
 
