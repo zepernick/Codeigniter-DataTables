@@ -430,8 +430,7 @@ class Datatable
     //if model in subfolders not in model folder like this
     // model/shopping/tvmodel
     private function getModel($model){
-        $Folders =  explode('/',$model);
-        return end($Folders);
+        return end(explode('/',$model));
     }
 
 
