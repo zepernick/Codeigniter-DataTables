@@ -29,6 +29,7 @@
  *
  *
  * @author Paul Zepernick
+ * @author Sean Benoit (5/10/2016)
  */
 class Datatable
 {
@@ -58,17 +59,26 @@ class Datatable
         $CI =& get_instance();
 
         if (isset($params['model']) === FALSE) {
-            throw new Exception('Expected a parameter named "model".');
+            throw new \Exception('Expected a parameter named "model".');
         }
 
         $model = $params['model'];
 
         $this->rowIdCol = isset($params['rowIdCol']) ? $params['rowIdCol'] : NULL;
 
-        $CI->load->model($model);
+		try {
+	        try {
+				$CI->load->model($model);
+			} catch(\Exception $ex) {
+				# Specific to my cfg
+				$CI->$model = new $model();
+			};
+		} catch(\Exception $ex) {
+			throw new \Exception($ex->getMessage());
+		}
 
         if (($CI->$model instanceof DatatableModel) === false) {
-            throw new Exception('Model must implement the DatatableModel Interface');
+            throw new \Exception('Model must implement the DatatableModel Interface');
         }
 
         //even though $model is a String php looks at the String value and finds the property
@@ -205,21 +215,24 @@ class Datatable
 
 
         //setup order by
-        $customExpArray = is_null($this->model->appendToSelectStr()) ?
-            array() :
-            $this->model->appendToSelectStr();
+        $customExpArray = is_null($this->model->appendToSelectStr()) ? array() : $this->model->appendToSelectStr();
+
         foreach ($f->post_get('order') as $o) {
             if ($o['column'] !== '') {
                 $colName = $columnIdxArray[$o['column']];
+
                 //handle custom sql expressions/subselects
                 if (substr($colName, 0, 2) === '$.') {
                     $aliasKey = substr($colName, 2);
+
                     if (isset($customExpArray[$aliasKey]) === FALSE) {
                         throw new Exception('Alias[' . $aliasKey . '] Could Not Be Found In appendToSelectStr() Array');
                     }
 
                     $colName = $customExpArray[$aliasKey];
+					$colName = $aliasKey;
                 }
+
                 $this->CI->db->order_by($colName, $o['dir']);
             }
         }
@@ -227,7 +240,7 @@ class Datatable
         //echo $sqlSelectStr;
 
         $this->CI->db->select($sqlSelectStr, $this->protectIdentifiers);
-        $whereDebug = $this->sqlJoinsAndWhere();
+        $whereDebug = $this->sqlJoinsAndWhere('data');
         $this->CI->db->limit($limit, $start);
         $query = $this->CI->db->get();
 
@@ -250,7 +263,7 @@ class Datatable
             //loop rows returned by the query
             foreach ($allColsArray as $c) {
                 if (trim($c) === '') {
-                    continue;
+                	 continue;
                 }
 
                 $propParts = explode('.', $c);
@@ -266,11 +279,12 @@ class Datatable
                         $nestedObj = $colObj[$propParts[0]];
                     }
 
-
-                    $nestedObj[$propParts[1]] = $this->formatValue($formats, $prop, $row->$prop);
+                    // $nestedObj[$propParts[1]] = $this->formatValue($formats, $prop, $row->$prop);
+					$nestedObj[$propParts[1]] = $this->formatValue($formats, $c, $row->$prop);
                     $colObj[$propParts[0]] = $nestedObj;
                 } else {
-                    $colObj[$c] = $this->formatValue($formats, $prop, $row->$prop);
+                    // $colObj[$c] = $this->formatValue($formats, $prop, $row->$prop);
+					$colObj[$c] = $this->formatValue($formats, $c, $row->$prop);
                 }
             }
 
@@ -279,11 +293,12 @@ class Datatable
                 $idCol = trim(end($tmpRowIdSegments));
                 $colObj['DT_RowId'] = $row->$idCol;
             }
+
             $dataArray[] = $colObj;
         }
 
 
-        $this->sqlJoinsAndWhere();
+        $this->sqlJoinsAndWhere('count');
         $totalRecords = $this->CI->db->count_all_results();
 
 
@@ -310,32 +325,49 @@ class Datatable
             return $value;
         }
 
-        switch ($formats[$column]) {
-            case 'date' :
-                $dtFormats = array('Y-m-d H:i:s', 'Y-m-d');
-                $dt = null;
-                //try to parse the date as 2 different formats
-                foreach ($dtFormats as $f) {
-                    $dt = DateTime::createFromFormat($f, $value);
-                    if ($dt !== FALSE) {
-                        break;
-                    }
-                }
-                if ($dt === FALSE) {
-                    //neither pattern could parse the date
-                    throw new Exception('Could Not Parse To Date For Formatting [' . $value . ']');
-                }
-                return $dt->format('m/d/Y');
-            case 'percent' :
-                ///$formatter = new \NumberFormatter('en_US', \NumberFormatter::PERCENT);
-                //return $formatter -> format(floatval($value) * .01);
-                return $value . '%';
-            case 'currency' :
-                return '$' . number_format(floatval($value), 2);
-            case 'boolean' :
-                $b = filter_var($value, FILTER_VALIDATE_BOOLEAN);
-                return $b ? 'Yes' : 'No';
-        }
+		if(is_array($formats[$column])) : 
+			if(is_object($formats[$column][0])) : 
+				$function_name = array_slice($formats[$column], 0, 2);
+				$formats[$column] = array_slice($formats[$column], 2);
+			else : 
+				$function_name = array_shift($formats[$column]);
+			endif;
+
+			array_unshift($formats[$column], $value);
+			return call_user_func_array($function_name, $formats[$column]);
+		else : 
+			switch ($formats[$column]) {
+				case 'date' :
+					$dtFormats = array('Y-m-d H:i:s', 'Y-m-d');
+					$dt = null;
+					//try to parse the date as 2 different formats
+					foreach ($dtFormats as $f) {
+						$dt = DateTime::createFromFormat($f, $value);
+						if ($dt !== FALSE) {
+							break;
+						}
+					}
+					if ($dt === FALSE) {
+						//neither pattern could parse the date
+						throw new Exception('Could Not Parse To Date For Formatting [' . $value . ']');
+					}
+					return $dt->format('m/d/Y');
+				case 'percent' :
+					///$formatter = new \NumberFormatter('en_US', \NumberFormatter::PERCENT);
+					//return $formatter -> format(floatval($value) * .01);
+					return $value . '%';
+				case 'currency' :
+					return '$' . number_format(floatval($value), 2);
+				case 'boolean' :
+					$b = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+					return $b ? 'Yes' : 'No';
+				default : 
+					if(function_exists($formats[$column])) : 
+						return $formats[$column]($value);
+					endif;
+				break;
+			}
+		endif;
 
         return $value;
     }
@@ -346,8 +378,8 @@ class Datatable
     //fetch the data and get a total record count
     private function sqlJoinsAndWhere()
     {
-        $debug = '';
-        // this is protected in CI 3 and can no longer be turned off. must be turned off in the config
+		$debug = '';
+        // protect_identifiers is a protected property in CI 3 and can no longer be turned off. must be turned off in the config
         // $this -> CI -> db-> _protect_identifiers = FALSE;
         $this->CI->db->from($this->model->fromTableStr());
 
@@ -362,19 +394,20 @@ class Datatable
             $this->CI->db->join($tableName, $on, $join, $this->protectIdentifiers);
         }
 
-        $customExpArray = is_null($this->model->appendToSelectStr()) ?
-            array() :
-            $this->model->appendToSelectStr();
+        $customExpArray = is_null($this->model->appendToSelectStr()) ? array() : $this->model->appendToSelectStr();
 
         $f = $this->CI->input;
 
         $searchableColumns = array();
+		$in_or_group = FALSE;
+
         foreach ($f->post_get('columns') as $c) {
 
             $colName = $c['data'];
 
             if (substr($colName, 0, 2) === '$.') {
                 $aliasKey = substr($colName, 2);
+
                 if (isset($customExpArray[$aliasKey]) === FALSE) {
                     throw new Exception('Alias[' . $aliasKey . '] Could Not Be Found In appendToSelectStr() Array');
                 }
@@ -383,7 +416,11 @@ class Datatable
             }
 
             if ($c['searchable'] !== 'false') {
-                $searchableColumns[] = $colName;
+				if(isset($aliasKey)) : 
+					$searchableColumns[$aliasKey] = $colName;
+				else : 
+	                $searchableColumns[] = $colName;
+				endif;
             }
 
             if ($c['search']['value'] !== '') {
@@ -393,23 +430,40 @@ class Datatable
 
                 $debug .= 'col[' . $c['data'] . '] value[' . $c['search']['value'] . '] ' . PHP_EOL;
                 //	log_message('info', 'colname[' . $colName . '] searchtype[' . $searchType . ']');
-                $this->CI->db->like($colName, $c['search']['value'], $searchType, $this->protectIdentifiers);
+
+				if(FALSE === $in_or_group) : 
+					$this->CI->db->or_group_start();
+				endif;
+
+				$this->CI->db->like($colName, $c['search']['value'], $searchType, $this->protectIdentifiers);
             }
+				
+			unset($aliasKey);
         }
 
+		if(TRUE === $in_or_group) : 
+			$this->CI->db->group_end();
+		endif;
 
         // put together a global search if specified
         $globSearch = $f->post_get('search');
+
         if ($globSearch['value'] !== '') {
-            $gSearchVal = $globSearch['value'];
-            $sqlOr = '';
-            $op = '';
+            $gSearchVal = $globSearch['value'];			
+			$in_or_group = FALSE;
+
             foreach ($searchableColumns as $c) {
-                $sqlOr .= $op . $c . ' LIKE \'' . $this->CI->db->escape_like_str($gSearchVal) . '%\'';
-                $op = ' OR ';
+				if(FALSE === $in_or_group) : 
+					$in_or_group = TRUE;
+					$this->CI->db->or_group_start();
+				endif;
+
+				$this->CI->db->or_like($c, $gSearchVal, 'right', FALSE);
             }
 
-            $this->CI->db->where('(' . $sqlOr . ')');
+			if($in_or_group) : 
+	            $this->CI->db->group_end();
+			endif;
         }
 
 
