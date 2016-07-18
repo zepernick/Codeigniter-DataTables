@@ -48,6 +48,9 @@ class Datatable
 
     private $protectIdentifiers = FALSE;
 
+    /** Array $filter_array */
+    private $filter_array;
+
 
     /**
      * @params
@@ -62,6 +65,8 @@ class Datatable
         }
 
         $model = $params['model'];
+
+        $this->filter_array = isset($params['filter']) ? $params['filter'] : NULL;
 
         $this->rowIdCol = isset($params['rowIdCol']) ? $params['rowIdCol'] : NULL;
 
@@ -415,6 +420,14 @@ class Datatable
 
         //append a static where clause to what the user has filtered, if the model tells us to do so
         $wArray = $this->model->whereClauseArray();
+
+         //When loading model, can also define filter as a param
+        if($this->filter_array !== NULL){
+            foreach ($this->filter_array as $key=>$filter){
+                $wArray[$key] = $filter;
+            }
+        }
+
         if (is_null($wArray) === FALSE && is_array($wArray) === TRUE && count($wArray) > 0) {
             $this->CI->db->where($wArray, $this->protectIdentifiers);
         }
