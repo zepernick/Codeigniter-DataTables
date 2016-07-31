@@ -418,6 +418,12 @@ class Datatable
         if (is_null($wArray) === FALSE && is_array($wArray) === TRUE && count($wArray) > 0) {
             $this->CI->db->where($wArray, $this->protectIdentifiers);
         }
+		
+		//append a static where 'OR' clause to what the user has filtered, if the model tells us to do so
+        $wOrArray = $this->model->whereOrClauseArray();
+        if (is_null($wOrArray) === FALSE && is_array($wOrArray) === TRUE && count($wOrArray) > 0) {
+            $this->CI->db->or_where($wOrArray, $this->protectIdentifiers);
+        }
 
         return $debug;
     }
@@ -454,6 +460,14 @@ interface DatatableModel
      * when not filtering by additional criteria
      */
     public function whereClauseArray();
+	
+	/**
+     *
+     * @return
+     *    Static where OR clause to be appended to all search queries.  Return NULL or empty array
+     * when not filtering by additional criteria
+     */
+    public function whereOrClauseArray();
 }
 
 // END Datatable Class
