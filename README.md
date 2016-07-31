@@ -70,6 +70,7 @@ Name          | Description   | Return
 `fromTableStr` | Specify the table name to select from. *Tip: You can also include an alias here `return 'mytable a';`*| **String **
 `joinArray` | Join additional tables for DataTable columns to reference.  *Tip: Join Types CAN be specifed by using a pipe in the key value `'table_to_join b&#124;left outer'`*| **Assoc. Array** *Key*=Table To Join *Value*=SQL Join Expression.
 `whereClauseArray`| Append Static SQL to the generated Where Clause| **Assoc. Array** *Key*= Column Name *Value*=Value To Filter **OR** *NULL*
+`whereOrClauseArray`| Append Static SQL to the generated Where OR Clause| **Assoc. Array** *Key*= Column Name *Value*=Value To Filter
 
 Methods
 ----
@@ -133,6 +134,10 @@ Basic DatatableModel Implementation
     	public function whereClauseArray(){
     		return NULL;
     	}
+		
+		public function whereOrClauseArray(){
+			return null;
+    	}
    }
 ```
 
@@ -166,6 +171,10 @@ More Advanced DatatableModel Implementation
 			return array(
 				'u.id' => $this -> ion_auth -> get_user_id() 
 				);
+    	}
+		
+		public function whereOrClauseArray(){
+			return null;
     	}
    }
 ```
