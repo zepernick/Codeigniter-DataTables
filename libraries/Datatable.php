@@ -402,14 +402,10 @@ class Datatable
         $globSearch = $f->post_get('search');
         if ($globSearch['value'] !== '') {
             $gSearchVal = $globSearch['value'];
-            $sqlOr = '';
-            $op = '';
             foreach ($searchableColumns as $c) {
-                $sqlOr .= $op . $c . ' LIKE \'' . $this->CI->db->escape_like_str($gSearchVal) . '%\'';
-                $op = ' OR ';
+                $searchType = $this->getColumnSearchType($c);
+                $this->CI->db->or_like($c, $gSearchVal, $searchType);
             }
-
-            $this->CI->db->where('(' . $sqlOr . ')');
         }
 
 
