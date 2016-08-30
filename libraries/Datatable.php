@@ -190,7 +190,8 @@ class Datatable
             $selectArray[] = $c['data'];
         }
         if ($this->rowIdCol !== NULL && in_array($this->rowIdCol, $selectArray) === FALSE) {
-            $selectArray[] = $this->rowIdCol;
+            $tableName = explode('.',$selectArray[0])[0];
+            $selectArray[] = "{$tableName}.{$this->rowIdCol}";
         }
 
         //put the select string together
