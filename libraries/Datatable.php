@@ -213,12 +213,7 @@ class Datatable
                 $colName = $columnIdxArray[$o['column']];
                 //handle custom sql expressions/subselects
                 if (substr($colName, 0, 2) === '$.') {
-                    $aliasKey = substr($colName, 2);
-                    if (isset($customExpArray[$aliasKey]) === FALSE) {
-                        throw new Exception('Alias[' . $aliasKey . '] Could Not Be Found In appendToSelectStr() Array');
-                    }
-
-                    $colName = $customExpArray[$aliasKey];
+                    $colName = substr($colName, 2);
                 }
                 $this->CI->db->order_by($colName, $o['dir']);
             }
