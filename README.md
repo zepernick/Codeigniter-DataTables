@@ -79,26 +79,24 @@ in the JSON or to add custom properties to the JSON before it is pushed to the b
 you will end up with a copy of the array and it will not affect the json.  Below is an example of how it is used.
 ```php
 $this -> datatable -> setPreResultCallback(
-			function(&$json) {
-				$rows =& $json['data'];
-				foreach($rows as &$r) {
-					// example of nested object in row when the 
-					// data propterty in the javascript looks like "$.url"
-					if(empty($r['$']['url']) === FALSE) {
-						$newUrl = 'http://www.changeurl.com';
-						$r['$']['url'] = $newUrl;
-					}
-					
-					// change the value of the gender in the Json.  data property in the javascript looks like "gender"
-					$r['gender'] = $r['gender'] == 'M' ? 'Male' : 'Female';
-					
-					
-				}
-				
-				
-				$json['a_custom_property'] = 'Check me out with firebug!';	
+	function(&$json) {
+		$rows =& $json['data'];
+		foreach($rows as &$r) {
+			// example of nested object in row when the 
+			// data propterty in the javascript looks like "$.url"
+			if(empty($r['$']['url']) === FALSE) {
+				$newUrl = 'http://www.changeurl.com';
+				$r['$']['url'] = $newUrl;
 			}
-		);
+
+			// change the value of the gender in the Json.  data property in the javascript looks like "gender"
+			$r['gender'] = $r['gender'] == 'M' ? 'Male' : 'Female';
+
+		}
+
+		$json['a_custom_property'] = 'Check me out with firebug!';	
+	}
+);
 ```
 
 `setColumnSearchType(columnName, type)`
@@ -116,58 +114,52 @@ Set the matching type to be done for a given column. This will default to "after
 Basic DatatableModel Implementation
 --------
 ```php
-    class store_dt extends MY_Model implements DatatableModel{
-    	
-		public function appendToSelectStr() {
-				return NULL;
-		}
-    	
-		public function fromTableStr() {
-			return 'store s';
-		}
-    
-	    public function joinArray(){
-	    	return NULL;
-	    }
-	    
-    	public function whereClauseArray(){
-    		return NULL;
-    	}
-   }
+class store_dt extends MY_Model implements DatatableModel{
+	public function appendToSelectStr() {
+		return NULL;
+	}
+	
+	public function fromTableStr() {
+		return 'store s';
+	}
+	
+	public function joinArray(){
+		return NULL;
+	}
+	
+	public function whereClauseArray(){
+		return NULL;
+	}
+}
 ```
 
 More Advanced DatatableModel Implementation
 --------
 ```php
-    class state_dt extends MY_Model implements DatatableModel{
-			
+class state_dt extends MY_Model implements DatatableModel{
+	public function appendToSelectStr() {
+		return array(
+			'city_state_zip' => 'concat(s.s_name, \'  \', c.c_name, \'  \', c.c_zip)'
+		);
+	}
 
-		public function appendToSelectStr() {
-				return array(
-					'city_state_zip' => 'concat(s.s_name, \'  \', c.c_name, \'  \', c.c_zip)'
-				);
-				
-		}
-    	
-		public function fromTableStr() {
-			return 'state s';
-		}
-		
-    
+	public function fromTableStr() {
+		return 'state s';
+	}
 
-	    public function joinArray(){
-	    	return array(
-	    	  'city c|left outer' => 'c.state_id = s.id',
-              'user u' => 'u.state_id = s.id'
-              );
-	    }
-	    
-    	public function whereClauseArray(){
-			return array(
-				'u.id' => $this -> ion_auth -> get_user_id() 
-				);
-    	}
-   }
+	public function joinArray(){
+		return array(
+			'city c|left outer' => 'c.state_id = s.id',
+			'user u' => 'u.state_id = s.id'
+		);
+	}
+
+	public function whereClauseArray(){
+		return array(
+			'u.id' => $this -> ion_auth -> get_user_id() 
+		);
+	}
+}
 ```
 
 Controller Example
@@ -175,11 +167,11 @@ Controller Example
 ```php
 class DataTableExample extends CI_Controller {
 	public function dataTable() {
-    	//Important to NOT load the model and let the library load it instead.  
+		//Important to NOT load the model and let the library load it instead.  
 		$this -> load -> library('Datatable', array('model' => 'state_dt', 'rowIdCol' => 'c.id'));
-        
-        //format array is optional, but shown here for the sake of example
-        $json = $this -> datatable -> datatableJson(
+		
+		//format array is optional, but shown here for the sake of example
+		$json = $this -> datatable -> datatableJson(
 			array(
 				'a_date_col' => 'date',
 				'a_boolean_col' => 'boolean',
@@ -187,13 +179,11 @@ class DataTableExample extends CI_Controller {
 				'a_currency_col' => 'currency'
 			)
 		);
-        
-        $this -> output -> set_header("Pragma: no-cache");
-        $this -> output -> set_header("Cache-Control: no-store, no-cache");
-        $this -> output -> set_content_type('application/json') -> set_output(json_encode($json));
- 
-    }
 
+		$this -> output -> set_header("Pragma: no-cache");
+		$this -> output -> set_header("Cache-Control: no-store, no-cache");
+		$this -> output -> set_content_type('application/json') -> set_output(json_encode($json));
+	}
 }
 ```
 
@@ -202,14 +192,14 @@ Table HTML In View
 ```html
 <table id="myDataTable">
 	<thead>
-    	<tr>
-        	<th>State</th>
-            <th>City</th>
-            <th>Zip</th>
-            <th>Combined Exp</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
+		<tr>
+			<th>State</th>
+			<th>City</th>
+			<th>Zip</th>
+			<th>Combined Exp</th>
+		</tr>
+	</thead>
+	<tbody></tbody>
 </table>
 ```
 
@@ -220,19 +210,19 @@ in the `data` property of the `columns` array.
 
 ```javascript
 $('#myDataTable').dataTable( {
-        processing: true,
-        serverSide: true,
-        ajax: {
-            "url": "/index.php/DataTableExample/dataTable",
-            "type": "POST"
-        },
-        columns: [
-            { data: "s.s_name" },
-            {data : "c.c_name"},
-            {data : "c.c_zip"},
-            { data: "$.city_state_zip" } //refers to the expression in the "More Advanced DatatableModel Implementation"
-        ]
-    });
+	processing: true,
+	serverSide: true,
+	ajax: {
+		"url": "/index.php/DataTableExample/dataTable",
+		"type": "POST"
+	},
+	columns: [
+		{ data: "s.s_name" },
+		{data : "c.c_name"},
+		{data : "c.c_zip"},
+		{ data: "$.city_state_zip" } //refers to the expression in the "More Advanced DatatableModel Implementation"
+	]
+});
 ```
 
 Resources
